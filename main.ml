@@ -281,38 +281,178 @@ let rec length_sort lst =
     aux lst []
 ;;
 
-let rec lengths lst = 
+let rec frequency lst =
+    let rec lengths inp out =
+        match inp with
+        | [] -> out
+        | hd :: tl -> lengths tl (((length hd), hd) :: out)
+    in
+    let rec pack lst out =
+        match (lst, out) with
+        | [], _ -> out
+        | hd :: tl, [] -> pack tl [[hd]]
+        | hd :: tl, out_hd :: out_tl ->
+            let len_out, _ = (List.hd out_hd) in
+            let len_inp, _ = hd in
+            if len_inp = len_out then
+                pack tl ([[hd] @ out_hd] @ out_tl)
+            else
+                pack tl ([hd] :: out)
+    in
+    let rec sort lst out =
+        let rec merge left right out =
+            match (left, right) with
+            | [], [] -> out
+            | hd :: tl, [] -> merge tl [] (out @ [hd])
+            | [], hd :: tl -> merge [] tl (out @ [hd])
+            | lh :: lt, rh :: rt ->
+                let lh_v, _ = lh in
+                let rh_v, _ = rh in
+                if lh_v <= rh_v then
+                    merge lt right (out @ [lh])
+                else
+                    merge left rt (out @ [rh])
+        in
+        match lst with
+        | [] -> []
+        | [x] -> [x]
+        | _ -> 
+            let split_pnt = (length lst) / 2 in
+            let l, r = split lst split_pnt in
+            let sorted_l = (sort l []) in
+            let sorted_r = (sort r []) in
+            (merge sorted_l sorted_r [])
+    in
+    let rec unpack inp out =
+        let rec inner_unpack inp out =
+            match inp with
+            | [] -> out
+            | (_, lst) :: tl -> inner_unpack tl (out @ [lst])
+        in
+        match inp with
+        | [] -> out
+        | hd :: tl -> unpack tl (out @ (inner_unpack hd []))
+    in
+    unpack (length_sort (pack (sort (lengths lst []) []) [])) []
+;;
+
+(* Arithmetic *)
+
+let rec is_prime n =
+    (* Note: if n is not divisable by any number
+       upto sqrt(n) then n is not prime *)
+    let rec aux sqrt_n last =
+        if (float_of_int last) > sqrt_n then
+            true
+        else if (n mod last) == 0 then
+            false
+        else
+            aux sqrt_n (last + 1)
+    in
+    aux (Float.sqrt (float_of_int n)) 2
+;;
+
+let rec gcd a b = 
+    match b with
+    | 0 -> a
+    | t -> gcd t (a mod b)
+;;
+
+let coprime a b = 
+    (gcd a b) = 1
+;;
+
+let phi n =
+    let rec aux k r =
+        if k = n then
+            r
+        else if coprime n k then
+            aux (k + 1) (r + 1)
+        else
+            aux (k + 1) r
+    in
+    aux 1 0
+;;
+
+let rec prime_factors n =
+    let rec primes_upto_n x out =
+        if x >= n then
+            out
+        else if (is_prime x) then
+            primes_upto_n (x + 1) (x :: out)
+        else
+            primes_upto_n (x + 1) out
+    in
+    let rec filter_non_factors inp out =
+        match inp with
+        | [] -> out
+        | hd :: tl ->
+            if (n mod hd) = 0 then
+                filter_non_factors tl (hd :: out)
+            else
+                filter_non_factors tl out
+    in
+    filter_non_factors (primes_upto_n 2 []) []
+;;
+
+(* TODO: Problem 37 *)
+
+(* TODO: Problem 38 *)
+
+
+let rec primes_between x y =
+    if x >= y then
+        []
+    else if (is_prime x) then
+        x :: (primes_between (x + 1) y)
+    else
+        primes_between (x + 1) y
+;;
+    
+let rec goldbach n =
+    let primes = primes_between 2 n in
+    let rec aux x y =
+        match (x, y) with
+        | [], _ -> None
+        | hd :: tl, [] -> aux tl primes
+        | hdx :: tlx, hdy :: tly ->
+            if (hdx + hdy) = n then
+                Some (hdx, hdy)
+            else
+                aux x tly
+    in
+    aux primes primes
+;;
+
+let goldbach_list x y =
+    let set = range x y in
     let rec aux inp out =
         match inp with
         | [] -> out
-        | hd :: tl -> aux tl ((length hd) :: out)
-    in 
-    aux lst []
-;;
-
-let rec biggest lst =
-    let rec aux inp cur_out cur_idx =
-        match inp with
-        | [] -> (cur_idx, cur_out)
         | hd :: tl -> 
-            if hd > cur_out then
-                (biggest tl hd ((length lst) - (length inp)))
+            if (hd mod 2) = 0 then
+                aux tl ((hd, (goldbach hd)) :: out)
             else
-                (biggest tl cur_out cur_idx)
+                aux tl out
     in
-    aux (lst) (Int.min_int) (-1)
+    aux set []
 ;;
 
-let rec int_sort lst =
-    let rec sort inp out =
+let goldbach_limit x y limit =
+    let gl = goldbach_list x y in
+    let is_over_limit n =
+        match n with
+        | _, Some (x, y) -> (x > limit) && (y > limit)
+        | _, None -> false
+    in
+    let rec aux inp out =
         match inp with
         | [] -> out
-        | _ -> 
-            let idx, largest = (biggest inp) in
-            printf "%d %d\n" idx largest;
-            List.iter (printf "%d ") inp;
-            print_endline;
-            sort (remove_at idx inp) (largest :: out)
+        | hd :: tl ->
+            if (is_over_limit hd) then
+                aux tl (hd :: out)
+            else
+                aux tl out
     in
-    sort lst []
+    aux gl []
 ;;
